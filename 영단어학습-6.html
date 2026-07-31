@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>단어 항아리 · 하루 500</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #EEF3F0;
+    --paper: #FFFFFF;
+    --ink: #1C2B28;
+    --muted: #7C8C89;
+    --teal: #1F7A6C;
+    --teal-deep: #14524A;
+    --amber: #E7A93C;
+    --good: #2F9E5B;
+    --bad: #E2574C;
+    --line: #DDE6E1;
+    --shadow: 0 10px 30px rgba(20,60,50,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 8%, rgba(31,122,108,0.07), transparent 40%),
+      radial-gradient(circle at 90% 85%, rgba(231,169,60,0.08), transparent 45%);
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app{
+    width:100%;
+    max-width:420px;
+    min-height:100vh;
+    padding: 22px 18px 26px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+
+  /* header */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'Outfit',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    color:var(--teal-deep);
+  }
+  .brand .jar{
+    width:20px;height:20px;
+    border-radius: 5px 5px 8px 8px;
+    background: linear-gradient(180deg, transparent 45%, var(--amber) 45%);
+    border: 2px solid var(--teal-deep);
+  }
+  .day-pill{
+    font-size:12px;
+    font-weight:600;
+    color:var(--teal-deep);
+    background:#DCEAE5;
+    padding:5px 10px;
+    border-radius:999px;
+  }
+
+  /* wordset bar */
+  .sentence{
+    font-size:14px;
+    font-weight:500;
+    color:var(--muted);
+    line-height:1.5;
+    padding: 0 6px;
+    margin-top:6px;
+  }
+  .sentence strong{
+    color: var(--teal-deep);
+    font-weight:800;
+  }
+
+  .wordset-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--paper);
+    border-radius:12px;
+    padding:9px 10px 9px 12px;
+    box-shadow: var(--shadow);
+  }
+  .wordset-info{
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    flex:1;
+  }
+  .wordset-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .wordset-btn{
+    border:none;
+    font-size:11.5px;
+    font-weight:700;
+    padding:7px 11px;
+    border-radius:999px;
+    cursor:pointer;
+    background: var(--teal);
+    color:#fff;
+    white-space:nowrap;
+  }
+  .wordset-btn:active{ transform: scale(0.95); }
+  .wordset-btn.ghost{
+    background:#EAF3EF;
+    color:var(--teal-deep);
+  }
+
+  /* mastery */
+  .mastery-bar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:0 2px;
+  }
+  .mastery-label{
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .mastery-track{
+    flex:1;
+    height:5px;
+    background:#DDE6E1;
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .mastery-fill{
+    height:100%;
+    background: var(--amber);
+    border-radius:999px;
+    width:0%;
+    transition: width .3s ease;
+  }
+  .review-toggle{
+    flex-shrink:0;
+    border:none;
+    background:#EAF3EF;
+    color:var(--teal-deep);
+    font-size:11px;
+    font-weight:700;
+    padding:6px 10px;
+    border-radius:999px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .review-toggle:active{ transform: scale(0.95); }
+
+  .review-panel{
+    background:var(--paper);
+    border-radius:14px;
+    padding:12px 14px;
+    box-shadow: var(--shadow);
+    max-height:260px;
+    overflow-y:auto;
+  }
+  .review-round{ margin-bottom:12px; }
+  .review-round:last-child{ margin-bottom:0; }
+  .review-round-title{
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--teal-deep);
+    margin-bottom:6px;
+  }
+  .review-word{
+    padding:8px 10px;
+    background:#F5F8F6;
+    border-radius:8px;
+    margin-bottom:6px;
+  }
+  .review-word:last-child{ margin-bottom:0; }
+  .review-en{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .review-ko{
+    font-size:12px;
+    font-weight:500;
+    color:var(--muted);
+    margin-left:8px;
+  }
+  .review-ex{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:3px;
+    font-style:italic;
+  }
+  .review-empty{
+    font-size:12px;
+    color:var(--muted);
+  }
+
+  .complete-banner{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background: #FFF6E6;
+    border:1px solid #F1D89A;
+    border-radius:12px;
+    padding:10px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    color:#8A5A00;
+  }
+  .complete-banner-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+
+  .example-line{
+    text-align:center;
+    font-size:12.5px;
+    color:var(--muted);
+    font-style:italic;
+    margin-top:-6px;
+    padding:0 8px;
+  }
+  .example-line strong{
+    color: var(--teal-deep);
+    font-weight:800;
+    font-style:normal;
+  }
+  .guess-btn{
+    display:inline-flex;
+    border:1px dashed #E0B84A;
+    background:#FFF8E8;
+    color:#8A5A00;
+    font-size:11.5px;
+    font-weight:700;
+    padding:6px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    margin-top:-4px;
+  }
+  .guess-btn:active{ transform: scale(0.95); }
+
+  /* progress */
+  .progress-wrap{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .progress-track{
+    flex:1;
+    height:8px;
+    background:#DDE6E1;
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background: linear-gradient(90deg, var(--teal), var(--amber));
+    border-radius:999px;
+    transition: width .35s ease;
+    width:0%;
+  }
+  .progress-num{
+    font-size:12px;
+    font-weight:700;
+    color:var(--muted);
+    white-space:nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* stats row */
+  .stats{
+    display:flex;
+    gap:10px;
+  }
+  .stat{
+    flex:1;
+    background:var(--paper);
+    border-radius:12px;
+    padding:8px 10px;
+    text-align:center;
+    box-shadow: var(--shadow);
+  }
+  .stat .n{font-family:'Outfit',sans-serif;font-weight:700;font-size:17px;color:var(--teal-deep);}
+  .stat .l{font-size:10.5px;color:var(--muted);margin-top:2px;}
+
+  /* word card */
+  .word-card{
+    background: var(--paper);
+    border-radius: 22px;
+    padding: 36px 20px;
+    text-align:center;
+    box-shadow: var(--shadow);
+    position:relative;
+    min-height:118px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:6px;
+  }
+  .word-card .en{
+    font-family:'Outfit',sans-serif;
+    font-weight:800;
+    font-size:32px;
+    letter-spacing:-0.01em;
+    color:var(--ink);
+    word-break: break-word;
+  }
+  .word-card .phon{
+    font-size:12.5px;
+    color:var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .speak-btn{
+    position:absolute;
+    top:14px; right:14px;
+    width:34px;height:34px;
+    border-radius:50%;
+    border:none;
+    background:#EAF3EF;
+    color:var(--teal-deep);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .speak-btn:active{ transform: scale(0.92); }
+
+  /* choices */
+  .choices{
+    display:flex;
+    flex-direction:column;
+    gap:11px;
+  }
+  .choice{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:var(--paper);
+    border:2px solid transparent;
+    border-radius:14px;
+    padding:14px 16px;
+    box-shadow: var(--shadow);
+    cursor:pointer;
+    font-size:15px;
+    font-weight:500;
+    text-align:left;
+    transition: border-color .15s ease, transform .1s ease, background .15s ease;
+  }
+  .choice:active{ transform: scale(0.985); }
+  .choice .num{
+    width:24px;height:24px;
+    border-radius:8px;
+    background:#DCEAE5;
+    color:var(--teal-deep);
+    font-size:12px;
+    font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .choice.correct{
+    border-color: var(--good);
+    background: #E9F7EE;
+  }
+  .choice.correct .num{ background:var(--good); color:#fff; }
+  .choice.wrong{
+    border-color: var(--bad);
+    background: #FDECEA;
+  }
+  .choice.wrong .num{ background:var(--bad); color:#fff; }
+  .choice.disabled{ pointer-events:none; }
+  .choice.dim{ opacity:0.55; }
+
+  /* feedback line */
+  .feedback{
+    min-height: 20px;
+    text-align:center;
+    font-size:13px;
+    font-weight:600;
+  }
+  .feedback.good{ color: var(--good); }
+  .feedback.bad{ color: var(--bad); }
+
+  /* bottom controls */
+  .controls{
+    margin-top:auto;
+    padding-top:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:22px;
+  }
+  .ring-wrap{
+    position:relative;
+    width:56px;height:56px;
+  }
+  .ring-wrap svg{ transform: rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:#DDE6E1; stroke-width:5; }
+  .ring-fg{ fill:none; stroke:var(--teal); stroke-width:5; stroke-linecap:round; transition: stroke-dashoffset .3s ease; }
+  .ring-num{
+    position:absolute; inset:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Outfit',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    color:var(--teal-deep);
+  }
+  .ctrl-btn{
+    width:52px;height:52px;
+    border-radius:50%;
+    border:none;
+    background:var(--paper);
+    box-shadow: var(--shadow);
+    color:var(--teal-deep);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .ctrl-btn:active{ transform:scale(0.92); }
+  .ctrl-btn.skip{ color: var(--muted); }
+
+  .done-screen{
+    background:var(--paper);
+    border-radius:22px;
+    padding:40px 22px;
+    text-align:center;
+    box-shadow: var(--shadow);
+  }
+  .done-screen .jar-big{
+    width:64px;height:64px;
+    margin:0 auto 14px;
+    border-radius: 14px 14px 22px 22px;
+    background: linear-gradient(180deg, transparent 35%, var(--amber) 35%);
+    border: 3px solid var(--teal-deep);
+  }
+  .done-screen h2{ font-family:'Outfit',sans-serif; margin: 0 0 6px; color:var(--teal-deep); }
+  .done-screen p{ color:var(--muted); font-size:14px; margin:0 0 18px; }
+  .reset-btn{
+    border:none;
+    background: var(--teal);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    padding:12px 22px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="jar"></span>단어 항아리</div>
+    <div class="day-pill" id="datePill">오늘</div>
+  </div>
+
+  <div class="wordset-bar">
+    <div class="wordset-info" id="wordsetInfo">기본 단어은행</div>
+    <div class="wordset-actions">
+      <button class="wordset-btn ghost" id="resetBankBtn" style="display:none;">기본으로</button>
+      <button class="wordset-btn" id="loadExcelBtn">엑셀 불러오기</button>
+    </div>
+    <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+
+  <div class="mastery-bar" id="masteryBar">
+    <div class="mastery-label" id="masteryLabel">1회차 진행 0 / 0</div>
+    <div class="mastery-track"><div class="mastery-fill" id="masteryFill"></div></div>
+    <button class="review-toggle" id="reviewToggleBtn">오답노트</button>
+  </div>
+  <div class="review-panel" id="reviewPanel" style="display:none;"></div>
+  <div class="complete-banner" id="completeBanner" style="display:none;">
+    <span id="completeBannerText">🎉 회차 완료!</span>
+    <div class="complete-banner-actions">
+      <button class="wordset-btn" id="completeLoadBtn">새 단어장</button>
+      <button class="wordset-btn ghost" id="completeCloseBtn">닫기</button>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-num" id="progressNum">0 / 500</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="statCorrect">0</div><div class="l">정답</div></div>
+    <div class="stat"><div class="n" id="statWrong">0</div><div class="l">오답</div></div>
+    <div class="stat"><div class="n" id="statStreak">0</div><div class="l">연속 정답</div></div>
+  </div>
+
+  <div id="quizArea"></div>
+
+  <div class="feedback" id="feedback"></div>
+  <div class="example-line" id="exampleLine" style="display:none;"></div>
+  <div style="text-align:center;">
+    <button class="guess-btn" id="guessBtn" style="display:none;">🎯 사실 찍었어요</button>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="speakBtnBottom" title="다시 듣기">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <div class="ring-wrap">
+      <svg width="56" height="56">
+        <circle class="ring-bg" cx="28" cy="28" r="24"></circle>
+        <circle class="ring-fg" id="ringFg" cx="28" cy="28" r="24" stroke-dasharray="150.8" stroke-dashoffset="150.8"></circle>
+      </svg>
+      <div class="ring-num" id="ringNum">500</div>
+    </div>
+    <button class="ctrl-btn skip" id="skipBtn" title="다음 단어">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+/* ---------------- 단어 데이터 (영단어 : 한글 뜻) ---------------- */
+const WORDS = [
+["financial","재정적인"],["abandon","버리다"],["ability","능력"],["absence","부재"],["absolute","절대적인"],
+["abstract","추상적인"],["abundant","풍부한"],["accelerate","가속하다"],["accept","받아들이다"],["access","접근"],
+["accompany","동반하다"],["accomplish","성취하다"],["accurate","정확한"],["achieve","달성하다"],["acknowledge","인정하다"],
+["acquire","획득하다"],["adapt","적응하다"],["adequate","적절한"],["adjust","조정하다"],["admire","존경하다"],
+["admit","인정하다"],["adopt","채택하다"],["advance","진보하다"],["adventure","모험"],["advocate","옹호하다"],
+["affect","영향을 미치다"],["afford","여유가 되다"],["agency","기관"],["aggressive","공격적인"],["agriculture","농업"],
+["aid","돕다"],["alert","경계하는"],["alien","외계인"],["alter","바꾸다"],["ambiguous","모호한"],
+["ambition","야망"],["analyze","분석하다"],["ancient","고대의"],["anticipate","예상하다"],["anxious","불안한"],
+["apparent","명백한"],["appeal","호소하다"],["appreciate","감사하다"],["approach","접근하다"],["appropriate","적절한"],
+["approve","승인하다"],["arbitrary","임의의"],["architecture","건축"],["argue","주장하다"],["arise","발생하다"],
+["arrange","배열하다"],["arrogant","오만한"],["artificial","인공의"],["ashamed","부끄러운"],["aspect","측면"],
+["assemble","조립하다"],["assert","단언하다"],["assess","평가하다"],["asset","자산"],["assign","할당하다"],
+["assist","돕다"],["associate","연관시키다"],["assume","가정하다"],["assure","확신시키다"],["astonish","놀라게 하다"],
+["athlete","운동선수"],["atmosphere","분위기"],["attach","붙이다"],["attain","달성하다"],["attempt","시도하다"],
+["attend","참석하다"],["attitude","태도"],["attract","끌어당기다"],["attribute","속성"],["authentic","진짜의"],
+["authority","권위"],["automatic","자동의"],["available","이용 가능한"],["avoid","피하다"],["aware","알고 있는"],
+["awkward","어색한"],["balance","균형"],["barely","겨우"],["barrier","장벽"],["behave","행동하다"],
+["belief","믿음"],["benefit","이익"],["betray","배신하다"],["beyond","넘어서"],["bias","편견"],
+["bold","대담한"],["boundary","경계"],["breed","기르다"],["brief","간단한"],["broad","넓은"],
+["budget","예산"],["burden","부담"],["campaign","캠페인"],["capable","할 수 있는"],["capacity","용량"],
+["capture","포착하다"],["career","경력"],["cautious","조심스러운"],["ceremony","의식"],["challenge","도전"],
+["characteristic","특징"],["charity","자선"],["chase","쫓다"],["chemical","화학의"],["circumstance","상황"],
+["civilization","문명"],["claim","주장하다"],["classify","분류하다"],["client","고객"],["clarify","명확히 하다"],
+["collapse","붕괴하다"],["colleague","동료"],["combine","결합하다"],["comfort","위안"],["command","명령하다"],
+["comment","논평"],["commerce","상업"],["commit","저지르다"],["commodity","상품"],["compare","비교하다"],
+["compassion","연민"],["compete","경쟁하다"],["compensate","보상하다"],["competent","유능한"],["complain","불평하다"],
+["complex","복잡한"],["comply","준수하다"],["component","구성 요소"],["compose","구성하다"],["comprehend","이해하다"],
+["comprise","구성하다"],["conceal","숨기다"],["concentrate","집중하다"],["concept","개념"],["concern","걱정"],
+["conclude","결론짓다"],["conduct","수행하다"],["confess","고백하다"],["confident","자신 있는"],["confine","제한하다"],
+["conflict","갈등"],["conform","순응하다"],["confront","맞서다"],["confuse","혼란시키다"],["conquer","정복하다"],
+["conscience","양심"],["conscious","의식하는"],["consent","동의"],["consequence","결과"],["conserve","보존하다"],
+["considerable","상당한"],["consist","구성되다"],["consolidate","통합하다"],["conspicuous","눈에 띄는"],["constant","끊임없는"],
+["constitute","구성하다"],["constrain","제약하다"],["construct","건설하다"],["consult","상담하다"],["consume","소비하다"],
+["contact","접촉"],["contain","포함하다"],["contemplate","숙고하다"],["contemporary","현대의"],["contend","경쟁하다"],
+["context","맥락"],["continuous","계속되는"],["contract","계약"],["contradict","모순되다"],["contrary","반대의"],
+["contrast","대조"],["contribute","기여하다"],["controversy","논란"],["convenient","편리한"],["convention","관습"],
+["convert","전환하다"],["convey","전달하다"],["convince","납득시키다"],["cooperate","협력하다"],["coordinate","조정하다"],
+["core","핵심"],["corporate","기업의"],["correlate","상관관계가 있다"],["correspond","일치하다"],["corrupt","부패한"],
+["council","의회"],["counsel","조언하다"],["counter","반박하다"],["courage","용기"],["crucial","중대한"],
+["crush","으스러뜨리다"],["cultivate","경작하다"],["curious","호기심 많은"],["currency","통화"],["custom","관습"],
+["debate","논쟁"],["decade","10년"],["decent","괜찮은"],["decline","감소하다"],["decorate","장식하다"],
+["dedicate","헌신하다"],["default","기본값"],["defeat","패배시키다"],["defend","방어하다"],["deficit","적자"],
+["define","정의하다"],["dense","밀집한"],["deny","부인하다"],["depict","묘사하다"],["deposit","예금"],
+["depress","우울하게 하다"],["deprive","박탈하다"],["derive","유래하다"],["descend","내려가다"],["desperate","절박한"],
+["destiny","운명"],["destruct","파괴하다"],["detect","탐지하다"],["deteriorate","악화되다"],["determine","결정하다"],
+["devise","고안하다"],["devote","헌신하다"],["diagnose","진단하다"],["dictate","지시하다"],["differ","다르다"],
+["dignity","존엄성"],["dilemma","딜레마"],["diminish","줄어들다"],["diplomat","외교관"],["disaster","재난"],
+["discard","버리다"],["disclose","공개하다"],["discourage","낙담시키다"],["discrimination","차별"],["disgust","혐오"],
+["dismiss","해고하다"],["dispose","처분하다"],["dispute","분쟁"],["disregard","무시하다"],["distinct","뚜렷한"],
+["distinguish","구별하다"],["distract","산만하게 하다"],["distress","고통"],["distribute","분배하다"],["disturb","방해하다"],
+["diverse","다양한"],["divert","전환하다"],["divine","신성한"],["dominant","지배적인"],["donate","기부하다"],
+["doubtful","의심스러운"],["drastic","급격한"],["dramatic","극적인"],["drought","가뭄"],["due","마감의"],
+["durable","내구성 있는"],["dwell","거주하다"],["dynamic","역동적인"],["eager","열망하는"],["earnest","진지한"],
+["ease","편안함"],["economic","경제의"],["edge","가장자리"],["efficient","효율적인"],["elaborate","정교한"],
+["elegant","우아한"],["element","요소"],["eliminate","제거하다"],["embarrass","당황하게 하다"],["embrace","포용하다"],
+["emerge","나타나다"],["emphasize","강조하다"],["empire","제국"],["employ","고용하다"],["enable","가능하게 하다"],
+["encounter","마주치다"],["endeavor","노력"],["endure","견디다"],["enforce","시행하다"],["engage","참여시키다"],
+["enhance","향상시키다"],["enormous","거대한"],["enrich","풍부하게 하다"],["ensure","보장하다"],["entail","수반하다"],
+["enterprise","기업"],["entire","전체의"],["entitle","자격을 주다"],["envy","부러움"],["equip","장비를 갖추다"],
+["equivalent","동등한"],["erase","지우다"],["erode","침식시키다"],["essential","필수적인"],["establish","설립하다"],
+["esteem","존경"],["estimate","추정하다"],["ethical","윤리적인"],["evaluate","평가하다"],["eventually","결국"],
+["evident","명백한"],["evoke","불러일으키다"],["evolve","진화하다"],["exaggerate","과장하다"],["exceed","초과하다"],
+["excel","뛰어나다"],["exclude","제외하다"],["execute","실행하다"],["exhaust","고갈시키다"],["exhibit","전시하다"],
+["exile","추방하다"],["exist","존재하다"],["expand","확장하다"],["expel","추방하다"],["expend","소비하다"],
+["explicit","명시적인"],["exploit","착취하다"],["expose","노출시키다"],["extend","확장하다"],["extinct","멸종된"],
+["extract","추출하다"],["fabric","직물"],["facilitate","촉진하다"],["faculty","능력"],["fake","가짜의"],
+["fatal","치명적인"],["favor","호의"],["feasible","실현 가능한"],["feature","특징"],["fee","요금"],
+["fierce","격렬한"],["figure","수치"],["finance","금융"],["flaw","결함"],["flee","도망가다"],
+["flexible","유연한"],["flourish","번영하다"],["fluent","유창한"],["foster","육성하다"],["found","설립하다"],
+["fraction","일부"],["fragile","깨지기 쉬운"],["fragment","조각"],["frame","틀"],["fraud","사기"],
+["frustrate","좌절시키다"],["fundamental","근본적인"],["furious","격노한"],["gap","격차"],["gaze","응시하다"],
+["gene","유전자"],["generate","생성하다"],["generous","관대한"],["genuine","진짜의"],["glimpse","힐끗 봄"],
+["global","세계적인"],["gorgeous","화려한"],["gradual","점진적인"],["grant","승인하다"],["grasp","이해하다"],
+["gratitude","감사"],["grief","슬픔"],["guarantee","보장하다"],["guilt","죄책감"],["harsh","가혹한"],
+["hazard","위험"],["hesitate","망설이다"],["hollow","속이 빈"],["horizon","지평선"],["hostile","적대적인"],
+["humble","겸손한"],["hypothesis","가설"],["identical","동일한"],["ideology","이념"],["ignore","무시하다"],
+["illustrate","설명하다"],["immense","거대한"],["immigrate","이주하다"],["impact","영향"],["implement","시행하다"],
+["implicit","암시적인"],["imply","암시하다"],["impose","부과하다"],["impress","감동시키다"],["inadequate","불충분한"],
+["incentive","유인책"],["incident","사건"],["inclined","경향이 있는"],["income","수입"],["incorporate","통합하다"],
+["increment","증가"],["indicate","나타내다"],["indispensable","필수불가결한"],["individual","개인의"],["induce","유발하다"],
+["indulge","탐닉하다"],["inevitable","불가피한"],["infant","유아"],["infer","추론하다"],["inferior","열등한"],
+["infinite","무한한"],["influence","영향"],["inform","알리다"],["ingredient","재료"],["inhabit","거주하다"],
+["inherent","고유한"],["inherit","상속받다"],["inhibit","억제하다"],["initial","초기의"],["initiate","시작하다"],
+["injure","다치게 하다"],["innate","타고난"],["innocent","무죄인"],["innovate","혁신하다"],["inquire","문의하다"],
+["insight","통찰력"],["insist","주장하다"],["inspect","점검하다"],["inspire","영감을 주다"],["instance","사례"],
+["institute","기관"],["instruct","지시하다"],["integrate","통합하다"],["integrity","진실성"],["intellect","지성"],
+["intense","강렬한"],["intent","의도"],["interact","상호작용하다"],["interfere","간섭하다"],["interpret","해석하다"],
+["interrupt","방해하다"],["intervene","개입하다"],["intimate","친밀한"],["intricate","복잡한"],["intrigue","흥미를 끌다"],
+["invade","침략하다"],["invaluable","매우 귀중한"],["invest","투자하다"],["invoke","불러일으키다"],["involve","관련시키다"],
+["irony","아이러니"],["irritate","짜증나게 하다"],["isolate","고립시키다"],["issue","쟁점"],["jealous","질투하는"],
+["justify","정당화하다"],["keen","열정적인"],["labor","노동"],["landscape","풍경"],["latter","후자의"],
+["launch","시작하다"],["legislate","입법하다"],["legitimate","합법적인"],["liable","책임이 있는"],["liberate","해방하다"],
+["likelihood","가능성"],["limitation","한계"],["linger","머무르다"],["literal","문자 그대로의"],["logic","논리"],
+["lonely","외로운"],["lure","유혹하다"],["luxury","사치"],["magnify","확대하다"],["maintain","유지하다"],
+["mankind","인류"],["manipulate","조작하다"],["manufacture","제조하다"],["margin","여백"],["massive","거대한"],
+["mature","성숙한"],["maximum","최대의"],["mechanism","메커니즘"],["mediate","중재하다"],["mental","정신의"],
+["merchant","상인"],["mercy","자비"],["merge","합병하다"],["mess","엉망"],["migrate","이주하다"],
+["mimic","흉내내다"],["minimal","최소한의"],["minority","소수"],["miserable","비참한"],["mislead","오도하다"],
+["modest","겸손한"],["modify","수정하다"],["monitor","감시하다"],["monument","기념물"],["moral","도덕적인"],
+["motive","동기"],["multiply","곱하다"],["mutual","상호간의"],["myth","신화"],["naive","순진한"],
+["negotiate","협상하다"],["neutral","중립의"],["nevertheless","그럼에도 불구하고"],["nominate","지명하다"],["norm","규범"],
+["notion","개념"],["notable","주목할 만한"],["nourish","영양분을 주다"],["nurture","양육하다"],["obey","순종하다"],
+["objective","목표"],["obligate","의무를 지우다"],["observe","관찰하다"],["obsess","집착하다"],["obstacle","장애물"],
+["obtain","얻다"],["obvious","명백한"],["occupy","차지하다"],["occur","발생하다"],["offend","기분 상하게 하다"],
+["offset","상쇄하다"],["ongoing","진행 중인"],["opponent","상대"],["oppose","반대하다"],["oppress","억압하다"],
+["optimistic","낙관적인"],["option","선택"],["orient","방향을 잡다"],["origin","기원"],["outcome","결과"],
+["outstanding","뛰어난"],["overall","전반적인"],["overcome","극복하다"],["overwhelm","압도하다"],["owe","빚지다"],
+["participate","참여하다"],["particular","특정한"],["passion","열정"],["passive","수동적인"],["penalty","처벌"],
+["perceive","인지하다"],["permanent","영구적인"],["persist","지속하다"],["perspective","관점"],["persuade","설득하다"],
+["pessimistic","비관적인"],["phase","단계"],["phenomenon","현상"],["plausible","그럴듯한"],["pledge","맹세하다"],
+["portray","묘사하다"],["potential","잠재적인"],["poverty","가난"],["practical","실용적인"],["precede","선행하다"],
+["precise","정확한"],["predict","예측하다"],["prefer","선호하다"],["pregnant","임신한"],["prejudice","편견"],
+["preliminary","예비의"],["premise","전제"],["preserve","보존하다"],["prestige","위신"],["presume","추정하다"],
+["pretend","~인 척하다"],["prevail","우세하다"],["prevent","예방하다"],["previous","이전의"],["principle","원칙"],
+["prior","이전의"],["priority","우선순위"],["proceed","진행하다"],["profound","심오한"],["progress","진전"],
+["prohibit","금지하다"],["prolong","연장하다"],["prominent","저명한"],["promote","촉진하다"],["prompt","즉각적인"],
+["proof","증거"],["proportion","비율"],["propose","제안하다"],["prospect","전망"],["prosper","번영하다"],
+["provoke","유발하다"],["publish","출판하다"],["pursue","추구하다"],["qualify","자격을 갖추다"],["quest","탐구"],
+["radical","급진적인"],["random","무작위의"],["range","범위"],["rare","희귀한"],["ratio","비율"],
+["rational","합리적인"],["react","반응하다"],["realistic","현실적인"],["realm","영역"],["rebel","반란을 일으키다"],
+["recall","회상하다"],["reception","환영회"],["recession","불황"],["recognize","인식하다"],["recover","회복하다"],
+["recruit","모집하다"],["reduce","줄이다"],["refer","언급하다"],["reflect","반영하다"],["reform","개혁하다"],
+["refute","반박하다"],["regard","간주하다"],["region","지역"],["register","등록하다"],["regret","후회하다"],
+["regulate","규제하다"],["reinforce","강화하다"],["reject","거부하다"],["relevant","관련 있는"],["reliable","신뢰할 수 있는"],
+["relieve","완화하다"],["reluctant","꺼리는"],["rely","의존하다"],["remark","언급"],["remedy","치료법"],
+["reminisce","회상하다"],["remote","외딴"],["remove","제거하다"],["render","만들다"],["renew","갱신하다"],
+["repel","격퇴하다"],["represent","대표하다"],["reputation","평판"],["require","요구하다"],["rescue","구조하다"],
+["resemble","닮다"],["resent","분개하다"],["reserve","예약하다"],["resident","거주자"],["resign","사임하다"],
+["resist","저항하다"],["resolve","해결하다"],["resource","자원"],["respond","응답하다"],["restore","복원하다"],
+["restrain","억제하다"],["restrict","제한하다"],["retain","유지하다"],["reveal","드러내다"],["revenue","수익"],
+["reverse","반대의"],["revise","수정하다"],["revive","되살리다"],["revolve","회전하다"],["reward","보상"],
+["rigid","엄격한"],["rival","경쟁자"],["route","경로"],["rural","시골의"],["sacrifice","희생"],
+["satisfy","만족시키다"],["scarce","부족한"],["scatter","흩뿌리다"],["scheme","계획"],["scope","범위"],
+["secure","안전한"],["seek","찾다"],["segment","부분"],["seldom","좀처럼 ~않다"],["sensible","분별 있는"],
+["sequence","순서"],["severe","심각한"],["shallow","얕은"],["shelter","피난처"],["shift","이동"],
+["significant","중요한"],["simulate","모의실험하다"],["sincere","진실한"],["skeptical","회의적인"],["slight","약간의"],
+["solitary","고독한"],["sophisticated","정교한"],["spark","촉발시키다"],["specific","구체적인"],["speculate","추측하다"],
+["sphere","영역"],["spontaneous","자발적인"],["spouse","배우자"],["stability","안정성"],["stake","지분"],
+["statistics","통계"],["status","지위"],["steady","꾸준한"],["stimulate","자극하다"],["strategy","전략"],
+["strict","엄격한"],["strive","노력하다"],["subject","주제"],["submit","제출하다"],["subsequent","이후의"],
+["substance","물질"],["substitute","대체하다"],["subtle","미묘한"],["succeed","성공하다"],["sufficient","충분한"],
+["confusion","혼란"],["summarize","요약하다"],["superior","우월한"],["supplement","보충하다"],["suppress","억압하다"],["surge","급증"],
+["surpass","능가하다"],["surrender","항복하다"],["survive","생존하다"],["suspect","의심하다"],["suspend","중단하다"],
+["sustain","지속하다"],["sympathy","동정"],["symptom","증상"],["tackle","해결하다"],["tedious","지루한"],
+["temporary","일시적인"],["tend","경향이 있다"],["tense","긴장한"],["terminate","종료하다"],["testify","증언하다"],
+["thorough","철저한"],["threat","위협"],["thrive","번성하다"],["tolerate","용인하다"],["trace","추적하다"],
+["tragic","비극적인"],["transform","변형시키다"],["transition","전환"],["transmit","전송하다"],["transparent","투명한"],
+["trigger","촉발시키다"],["triumph","승리"],["trivial","사소한"],["ultimate","궁극적인"],["undergo","겪다"],
+["underlying","근본적인"],["undermine","약화시키다"],["uniform","획일적인"],["unify","통합하다"],["unique","독특한"],
+["urban","도시의"],["urge","촉구하다"],["utilize","활용하다"],["vague","모호한"],["valid","유효한"],
+["vanish","사라지다"],["vary","다양하다"],["vast","광대한"],["verify","확인하다"],["versatile","다재다능한"],
+["via","~을 통해"],["vice","악덕"],["victim","희생자"],["violate","위반하다"],["virtual","가상의"],
+["vision","비전"],["vital","필수적인"],["vivid","생생한"],["vulnerable","취약한"],["wander","방황하다"],
+["warrant","보증하다"],["weird","이상한"],["welfare","복지"],["widespread","광범위한"],["withdraw","철회하다"],
+["witness","목격하다"],["yield","산출하다"]
+];
+
+/* 중복/오타 제거 + 예문 자리(빈 문자열) 추가 */
+const seen = new Set();
+const DEFAULT_BANK = WORDS.filter(([en]) => {
+  const k = en.toLowerCase();
+  if (seen.has(k)) return false;
+  seen.add(k);
+  return true;
+}).map(([en,ko]) => [en, ko, '']);
+
+const DAILY_GOAL = 500;
+const STORAGE_KEY = "vocab-jar-progress";
+const CUSTOM_BANK_KEY = "vocab-jar-custom-bank";
+
+/* ---------------- 사용자 엑셀 단어장 ---------------- */
+function loadCustomBank(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_BANK_KEY));
+    if(raw && Array.isArray(raw.words) && raw.words.length >= 4) return raw;
+  }catch(e){}
+  return null;
+}
+
+function dedupePairs(items){
+  const s = new Set();
+  return items.filter(([en]) => {
+    const k = String(en).trim().toLowerCase();
+    if(!k || s.has(k)) return false;
+    s.add(k);
+    return true;
+  });
+}
+
+function parseWorkbookToPairs(workbook){
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+  let data = rows.filter(r => r && r.length >= 2 && String(r[0]).trim() && String(r[1]).trim());
+  if(data.length && /^(word|단어|영단어|english|영어)$/i.test(String(data[0][0]).trim())){
+    data = data.slice(1);
+  }
+  // A열: 영단어, B열: 뜻, C열: 예문(선택)
+  const items = data.map(r => [
+    String(r[0]).trim(),
+    String(r[1]).trim(),
+    r[2] !== undefined ? String(r[2]).trim() : ''
+  ]);
+  return dedupePairs(items);
+}
+
+let activeBank = (loadCustomBank() || { words: DEFAULT_BANK }).words;
+
+function updateWordsetInfo(){
+  const custom = loadCustomBank();
+  const info = document.getElementById('wordsetInfo');
+  const resetBtn = document.getElementById('resetBankBtn');
+  if(custom){
+    info.textContent = `${custom.name} · ${custom.words.length}개`;
+    resetBtn.style.display = 'inline-flex';
+  }else{
+    info.textContent = `기본 단어은행 · ${DEFAULT_BANK.length}개`;
+    resetBtn.style.display = 'none';
+  }
+}
+
+/* ---------------- 회차(round)별 학습 진행 + 오답/스킵 기록 ---------------- */
+const ROUND_KEY = "vocab-jar-rounds";
+
+function currentBankKey(){
+  const custom = loadCustomBank();
+  return custom ? `custom:${custom.name}:${custom.words.length}` : `default:${DEFAULT_BANK.length}`;
+}
+
+function loadRoundState(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(ROUND_KEY));
+    if(raw && raw.bankKey === currentBankKey()){
+      return raw;
+    }
+  }catch(e){}
+  return { bankKey: currentBankKey(), roundNumber: 1, seen: [], missed: [], history: [] };
+}
+
+let roundState = loadRoundState();
+
+function saveRoundState(){
+  localStorage.setItem(ROUND_KEY, JSON.stringify(roundState));
+}
+
+function registerResult(en, correct){
+  const key = String(en).trim().toLowerCase();
+  if(!roundState.seen.includes(key)) roundState.seen.push(key);
+  if(!correct && !roundState.missed.includes(key)) roundState.missed.push(key);
+  saveRoundState();
+  maybeFinalizeRound();
+}
+
+function maybeFinalizeRound(){
+  if(activeBank.length > 0 && roundState.seen.length >= activeBank.length){
+    const finishedRound = roundState.roundNumber;
+    const missedCount = roundState.missed.length;
+    roundState.history.push({ round: finishedRound, total: activeBank.length, missed: [...roundState.missed] });
+    roundState.roundNumber += 1;
+    roundState.seen = [];
+    roundState.missed = [];
+    saveRoundState();
+    showRoundCompleteBanner(finishedRound, missedCount);
+  }
+  updateMasteryUI();
+}
+
+function showRoundCompleteBanner(finishedRound, missedCount){
+  const banner = document.getElementById('completeBanner');
+  const text = document.getElementById('completeBannerText');
+  text.textContent = `🎉 ${finishedRound}회차 완료! 틀리거나 넘어간 단어 ${missedCount}개는 오답노트에 쌓였어요. ${finishedRound+1}회차가 이어서 시작돼요.`;
+  banner.style.display = 'flex';
+}
+
+function updateMasteryUI(){
+  const label = document.getElementById('masteryLabel');
+  const fill = document.getElementById('masteryFill');
+  const pct = activeBank.length ? Math.min(100, (roundState.seen.length/activeBank.length)*100) : 0;
+  fill.style.width = pct + '%';
+  label.textContent = `${roundState.roundNumber}회차 진행 ${roundState.seen.length} / ${activeBank.length}`;
+}
+
+function bankLookup(){
+  const map = {};
+  activeBank.forEach(item=>{
+    const en = item[0], ko = item[1], example = item[2] || '';
+    map[String(en).trim().toLowerCase()] = { en, ko, example };
+  });
+  return map;
+}
+
+function renderReviewPanel(){
+  const map = bankLookup();
+  const panel = document.getElementById('reviewPanel');
+  const rounds = [...roundState.history, { round: roundState.roundNumber, missed: roundState.missed, inProgress: true }];
+  const html = rounds.slice().reverse().map(r=>{
+    const label = r.inProgress
+      ? `${r.round}회차 (진행중) · 오답/스킵 ${r.missed.length}개`
+      : `${r.round}회차 · 오답/스킵 ${r.missed.length}개`;
+    const words = r.missed.map(key=>{
+      const w = map[key];
+      if(!w) return '';
+      return `<div class="review-word">
+        <div class="review-en">${w.en}<span class="review-ko">${w.ko}</span></div>
+        ${w.example ? `<div class="review-ex">${w.example}</div>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="review-round">
+      <div class="review-round-title">${label}</div>
+      ${words || '<div class="review-empty">아직 없어요</div>'}
+    </div>`;
+  }).join('');
+  panel.innerHTML = html || '<div class="review-empty">아직 기록이 없어요</div>';
+}
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+}
+
+function loadState(){
+  let raw;
+  try{ raw = JSON.parse(localStorage.getItem(STORAGE_KEY)); }catch(e){ raw = null; }
+  if(!raw || raw.date !== todayStr()){
+    raw = { date: todayStr(), done: 0, correct: 0, wrong: 0, streak: 0, bestStreak: 0 };
+  }
+  return raw;
+}
+function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+let state = loadState();
+let current = null; // {word, choices, correctIndex}
+let locked = false;
+
+const el = {
+  progressFill: document.getElementById('progressFill'),
+  progressNum: document.getElementById('progressNum'),
+  statCorrect: document.getElementById('statCorrect'),
+  statWrong: document.getElementById('statWrong'),
+  statStreak: document.getElementById('statStreak'),
+  quizArea: document.getElementById('quizArea'),
+  feedback: document.getElementById('feedback'),
+  ringFg: document.getElementById('ringFg'),
+  ringNum: document.getElementById('ringNum'),
+  datePill: document.getElementById('datePill'),
+  speakBtnBottom: document.getElementById('speakBtnBottom'),
+  skipBtn: document.getElementById('skipBtn'),
+};
+
+const RING_CIRC = 150.8;
+
+function updateHeader(){
+  el.progressFill.style.width = Math.min(100, (state.done/DAILY_GOAL)*100) + "%";
+  el.progressNum.textContent = `${state.done} / ${DAILY_GOAL}`;
+  el.statCorrect.textContent = state.correct;
+  el.statWrong.textContent = state.wrong;
+  el.statStreak.textContent = state.streak;
+  const remaining = Math.max(0, DAILY_GOAL - state.done);
+  el.ringNum.textContent = remaining;
+  const frac = DAILY_GOAL ? (remaining/DAILY_GOAL) : 0;
+  el.ringFg.style.strokeDasharray = RING_CIRC;
+  el.ringFg.style.strokeDashoffset = RING_CIRC * (1-frac);
+  const now = new Date();
+  el.datePill.textContent = `${now.getMonth()+1}월 ${now.getDate()}일`;
+}
+
+function pickRandom(arr, n, excludeIdx){
+  const idxs = arr.map((_,i)=>i).filter(i=>i!==excludeIdx);
+  for(let i=idxs.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [idxs[i],idxs[j]] = [idxs[j],idxs[i]];
+  }
+  return idxs.slice(0,n);
+}
+
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function formatExample(text){
+  const escaped = escapeHtml(text);
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.92;
+  window.speechSynthesis.speak(u);
+}
+
+function pickWordIndex(){
+  const seenSet = new Set(roundState.seen);
+  const unseen = [];
+  for(let i=0;i<activeBank.length;i++){
+    if(!seenSet.has(String(activeBank[i][0]).trim().toLowerCase())) unseen.push(i);
+  }
+  const pool = unseen.length ? unseen : activeBank.map((_,i)=>i);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function nextQuestion(){
+  if(state.done >= DAILY_GOAL){
+    renderDone();
+    return;
+  }
+  locked = false;
+  el.feedback.textContent = '';
+  el.feedback.className = 'feedback';
+  const exLine = document.getElementById('exampleLine');
+  if(exLine){ exLine.style.display = 'none'; exLine.textContent = ''; }
+  const guessBtn = document.getElementById('guessBtn');
+  if(guessBtn){ guessBtn.style.display = 'none'; guessBtn.onclick = null; }
+
+  const wordIdx = pickWordIndex();
+  const [en, ko, example] = activeBank[wordIdx];
+
+  const wrongIdxs = pickRandom(activeBank, 3, wordIdx);
+  const options = [ko, ...wrongIdxs.map(i=>activeBank[i][1])];
+  // shuffle options with correct index tracking
+  const order = [0,1,2,3];
+  for(let i=order.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [order[i],order[j]] = [order[j],order[i]];
+  }
+  const shuffled = order.map(i=>options[i]);
+  const correctPos = order.indexOf(0);
+
+  current = { en, ko, example: example || '', choices: shuffled, correctIndex: correctPos };
+  renderQuiz();
+  speak(en);
+}
+
+function renderQuiz(){
+  const cardInner = `
+    <button class="speak-btn" id="speakBtnTop" title="발음 듣기">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+    </button>
+    <div class="en">${current.en}</div>
+    ${ current.example ? `<div class="sentence">${formatExample(current.example)}</div>` : `<div class="phon">탭하여 발음 다시 듣기</div>` }
+  `;
+
+  el.quizArea.innerHTML = `
+    <div class="word-card">${cardInner}</div>
+    <div class="choices" style="margin-top:14px;">
+      ${current.choices.map((ko,i)=>`
+        <div class="choice" data-idx="${i}">
+          <span class="num">${i+1}</span>
+          <span>${ko}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.getElementById('speakBtnTop').addEventListener('click', ()=>speak(current.en));
+  el.quizArea.querySelectorAll('.choice').forEach(node=>{
+    node.addEventListener('click', ()=>selectAnswer(parseInt(node.dataset.idx)));
+  });
+}
+
+function selectAnswer(idx){
+  if(locked) return;
+  locked = true;
+  const nodes = el.quizArea.querySelectorAll('.choice');
+  const isCorrect = idx === current.correctIndex;
+
+  nodes.forEach((node,i)=>{
+    node.classList.add('disabled');
+    if(i === current.correctIndex) node.classList.add('correct');
+    else if(i === idx) node.classList.add('wrong');
+    else node.classList.add('dim');
+  });
+
+  state.done += 1;
+  const guessBtn = document.getElementById('guessBtn');
+  if(isCorrect){
+    state.correct += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    el.feedback.textContent = '정답이에요 👍';
+    el.feedback.className = 'feedback good';
+    guessBtn.style.display = 'inline-flex';
+  }else{
+    state.wrong += 1;
+    state.streak = 0;
+    el.feedback.textContent = `오답 · 정답은 "${current.choices[current.correctIndex]}"`;
+    el.feedback.className = 'feedback bad';
+    guessBtn.style.display = 'none';
+  }
+  saveState(state);
+  updateHeader();
+
+  const guessedWord = current.en;
+  let finalized = false;
+  const finalize = (countedCorrect) => {
+    if(finalized) return;
+    finalized = true;
+    registerResult(guessedWord, countedCorrect);
+  };
+
+  const advanceDelay = isCorrect ? 2200 : 1300;
+  const timer = setTimeout(()=>{ finalize(isCorrect); nextQuestion(); }, advanceDelay);
+
+  guessBtn.onclick = () => {
+    clearTimeout(timer);
+    finalize(false);
+    guessBtn.style.display = 'none';
+    el.feedback.textContent = '오답노트에 표시했어요 · 다음 회차에 다시 나와요';
+    el.feedback.className = 'feedback bad';
+    setTimeout(()=>{ nextQuestion(); }, 700);
+  };
+}
+
+function renderDone(){
+  el.quizArea.innerHTML = `
+    <div class="done-screen">
+      <div class="jar-big"></div>
+      <h2>오늘의 500단어 완료!</h2>
+      <p>정답 ${state.correct}개 · 오답 ${state.wrong}개 · 최고 연속 ${state.bestStreak}개</p>
+      <button class="reset-btn" id="restartBtn">한 번 더 풀기</button>
+    </div>
+  `;
+  el.feedback.textContent = '';
+  document.getElementById('restartBtn').addEventListener('click', ()=>{
+    state = { date: todayStr(), done:0, correct:0, wrong:0, streak:0, bestStreak: state.bestStreak };
+    saveState(state);
+    updateHeader();
+    nextQuestion();
+  });
+}
+
+el.speakBtnBottom.addEventListener('click', ()=>{
+  if(current) speak(current.en);
+});
+el.skipBtn.addEventListener('click', ()=>{
+  if(locked || !current) return;
+  locked = true;
+  const nodes = el.quizArea.querySelectorAll('.choice');
+  nodes.forEach(node=>node.classList.add('disabled'));
+  el.feedback.textContent = `모르는 단어로 표시했어요 · 정답은 "${current.choices[current.correctIndex]}"`;
+  el.feedback.className = 'feedback bad';
+  document.getElementById('guessBtn').style.display = 'none';
+  registerResult(current.en, false);
+  setTimeout(()=>{ nextQuestion(); }, 900);
+});
+
+const loadExcelBtn = document.getElementById('loadExcelBtn');
+const excelInput = document.getElementById('excelInput');
+const resetBankBtn = document.getElementById('resetBankBtn');
+const completeLoadBtn = document.getElementById('completeLoadBtn');
+const completeCloseBtn = document.getElementById('completeCloseBtn');
+const reviewToggleBtn = document.getElementById('reviewToggleBtn');
+
+loadExcelBtn.addEventListener('click', () => excelInput.click());
+completeLoadBtn.addEventListener('click', () => excelInput.click());
+completeCloseBtn.addEventListener('click', () => {
+  document.getElementById('completeBanner').style.display = 'none';
+});
+
+reviewToggleBtn.addEventListener('click', () => {
+  const panel = document.getElementById('reviewPanel');
+  const visible = panel.style.display !== 'none';
+  if(visible){
+    panel.style.display = 'none';
+  }else{
+    renderReviewPanel();
+    panel.style.display = 'block';
+  }
+});
+
+excelInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const items = parseWorkbookToPairs(workbook);
+      if(items.length < 4){
+        alert('단어가 4개 이상 필요해요. 엑셀 A열=영단어, B열=뜻, C열=예문(선택)으로 넣어주세요.');
+        return;
+      }
+      const customBank = { name: file.name.replace(/\.[^/.]+$/, ''), words: items };
+      localStorage.setItem(CUSTOM_BANK_KEY, JSON.stringify(customBank));
+      activeBank = items;
+      roundState = loadRoundState();
+      updateWordsetInfo();
+      updateMasteryUI();
+      document.getElementById('completeBanner').style.display = 'none';
+      document.getElementById('reviewPanel').style.display = 'none';
+      locked = false;
+      nextQuestion();
+    }catch(err){
+      alert('파일을 읽는 중 문제가 생겼어요. xlsx, xls, csv 파일인지 확인해주세요.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+resetBankBtn.addEventListener('click', () => {
+  localStorage.removeItem(CUSTOM_BANK_KEY);
+  activeBank = DEFAULT_BANK;
+  roundState = loadRoundState();
+  updateWordsetInfo();
+  updateMasteryUI();
+  document.getElementById('completeBanner').style.display = 'none';
+  document.getElementById('reviewPanel').style.display = 'none';
+  locked = false;
+  nextQuestion();
+});
+
+updateWordsetInfo();
+updateMasteryUI();
+updateHeader();
+nextQuestion();
+</script>
+</body>
+</html>
