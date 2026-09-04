@@ -292,34 +292,6 @@
   }
   .guess-btn:active{ transform: scale(0.95); }
 
-  /* progress */
-  .progress-wrap{
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-  .progress-track{
-    flex:1;
-    height:8px;
-    background:#DDE6E1;
-    border-radius:999px;
-    overflow:hidden;
-  }
-  .progress-fill{
-    height:100%;
-    background: linear-gradient(90deg, var(--teal), var(--amber));
-    border-radius:999px;
-    transition: width .35s ease;
-    width:0%;
-  }
-  .progress-num{
-    font-size:12px;
-    font-weight:700;
-    color:var(--muted);
-    white-space:nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
   /* stats row */
   .stats{
     display:flex;
@@ -468,33 +440,6 @@
   }
   .ctrl-btn:active{ transform:scale(0.92); }
   .ctrl-btn.skip{ color: var(--muted); }
-
-  .done-screen{
-    background:var(--paper);
-    border-radius:22px;
-    padding:40px 22px;
-    text-align:center;
-    box-shadow: var(--shadow);
-  }
-  .done-screen .jar-big{
-    width:64px;height:64px;
-    margin:0 auto 14px;
-    border-radius: 14px 14px 22px 22px;
-    background: linear-gradient(180deg, transparent 35%, var(--amber) 35%);
-    border: 3px solid var(--teal-deep);
-  }
-  .done-screen h2{ font-family:'Outfit',sans-serif; margin: 0 0 6px; color:var(--teal-deep); }
-  .done-screen p{ color:var(--muted); font-size:14px; margin:0 0 18px; }
-  .reset-btn{
-    border:none;
-    background: var(--teal);
-    color:#fff;
-    font-weight:700;
-    font-size:14px;
-    padding:12px 22px;
-    border-radius:999px;
-    cursor:pointer;
-  }
 </style>
 </head>
 <body>
@@ -531,11 +476,6 @@
       <button class="wordset-btn" id="completeLoadBtn">새 단어장</button>
       <button class="wordset-btn ghost" id="completeCloseBtn">닫기</button>
     </div>
-  </div>
-
-  <div class="progress-wrap">
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-num" id="progressNum">0 / 500</div>
   </div>
 
   <div class="stats">
@@ -739,7 +679,6 @@ const DEFAULT_BANK = WORDS.filter(([en]) => {
   return true;
 }).map(([en,ko]) => [en, ko, '']);
 
-const DAILY_GOAL = 500;
 const STORAGE_KEY = "vocab-jar-progress";
 const CUSTOM_BANK_KEY = "vocab-jar-custom-bank";
 
@@ -964,8 +903,6 @@ let current = null; // {word, choices, correctIndex}
 let locked = false;
 
 const el = {
-  progressFill: document.getElementById('progressFill'),
-  progressNum: document.getElementById('progressNum'),
   statCorrect: document.getElementById('statCorrect'),
   statWrong: document.getElementById('statWrong'),
   statStreak: document.getElementById('statStreak'),
@@ -981,14 +918,14 @@ const el = {
 const RING_CIRC = 150.8;
 
 function updateHeader(){
-  el.progressFill.style.width = Math.min(100, (state.done/DAILY_GOAL)*100) + "%";
-  el.progressNum.textContent = `${state.done} / ${DAILY_GOAL}`;
   el.statCorrect.textContent = state.correct;
   el.statWrong.textContent = state.wrong;
   el.statStreak.textContent = state.streak;
-  const remaining = Math.max(0, DAILY_GOAL - state.done);
+  // 링: 이번 회차에서 아직 안 본 단어 수
+  const total = activeBank.length;
+  const remaining = Math.max(0, total - roundState.seen.length);
   el.ringNum.textContent = remaining;
-  const frac = DAILY_GOAL ? (remaining/DAILY_GOAL) : 0;
+  const frac = total ? (remaining/total) : 0;
   el.ringFg.style.strokeDasharray = RING_CIRC;
   el.ringFg.style.strokeDashoffset = RING_CIRC * (1-frac);
   const now = new Date();
@@ -1036,10 +973,6 @@ function pickWordIndex(){
 }
 
 function nextQuestion(){
-  if(state.done >= DAILY_GOAL){
-    renderDone();
-    return;
-  }
   locked = false;
   el.feedback.textContent = '';
   el.feedback.className = 'feedback';
@@ -1106,7 +1039,6 @@ function selectAnswer(idx){
     else node.classList.add('dim');
   });
 
-  state.done += 1;
   const guessBtn = document.getElementById('guessBtn');
   if(isCorrect){
     state.correct += 1;
@@ -1144,24 +1076,6 @@ function selectAnswer(idx){
     el.feedback.className = 'feedback bad';
     setTimeout(()=>{ nextQuestion(); }, 700);
   };
-}
-
-function renderDone(){
-  el.quizArea.innerHTML = `
-    <div class="done-screen">
-      <div class="jar-big"></div>
-      <h2>오늘의 500단어 완료!</h2>
-      <p>정답 ${state.correct}개 · 오답 ${state.wrong}개 · 최고 연속 ${state.bestStreak}개</p>
-      <button class="reset-btn" id="restartBtn">한 번 더 풀기</button>
-    </div>
-  `;
-  el.feedback.textContent = '';
-  document.getElementById('restartBtn').addEventListener('click', ()=>{
-    state = { date: todayStr(), done:0, correct:0, wrong:0, streak:0, bestStreak: state.bestStreak };
-    saveState(state);
-    updateHeader();
-    nextQuestion();
-  });
 }
 
 el.speakBtnBottom.addEventListener('click', ()=>{
