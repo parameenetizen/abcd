@@ -132,6 +132,34 @@
     color:var(--teal-deep);
   }
 
+  .day-select-wrap{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--paper);
+    border-radius:12px;
+    padding:8px 12px;
+    box-shadow: var(--shadow);
+  }
+  .day-select-label{
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--teal-deep);
+    flex-shrink:0;
+  }
+  .day-select{
+    flex:1;
+    border:none;
+    background:#EAF3EF;
+    color:var(--ink);
+    font-size:12.5px;
+    font-weight:600;
+    padding:7px 8px;
+    border-radius:8px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+
   /* mastery */
   .mastery-bar{
     display:flex;
@@ -486,6 +514,11 @@
     <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
   </div>
 
+  <div class="day-select-wrap" id="daySelectWrap" style="display:none;">
+    <span class="day-select-label">Day</span>
+    <select class="day-select" id="daySelect"></select>
+  </div>
+
   <div class="mastery-bar" id="masteryBar">
     <div class="mastery-label" id="masteryLabel">1회차 진행 0 / 0</div>
     <div class="mastery-track"><div class="mastery-fill" id="masteryFill"></div></div>
@@ -729,35 +762,90 @@ function dedupePairs(items){
   });
 }
 
-function parseWorkbookToPairs(workbook){
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-  let data = rows.filter(r => r && r.length >= 2 && String(r[0]).trim() && String(r[1]).trim());
-  if(data.length && /^(word|단어|영단어|english|영어)$/i.test(String(data[0][0]).trim())){
-    data = data.slice(1);
-  }
-  // A열: 영단어, B열: 뜻, C열: 예문(선택)
-  const items = data.map(r => [
-    String(r[0]).trim(),
-    String(r[1]).trim(),
-    r[2] !== undefined ? String(r[2]).trim() : ''
-  ]);
-  return dedupePairs(items);
+function parseWorkbookAllSheets(workbook){
+  const allItems = [];
+  const days = [];
+  workbook.SheetNames.forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    let data = rows.filter(r => r && r.length >= 2 && String(r[0]).trim() && String(r[1]).trim());
+    if(data.length && /^(word|단어|영단어|english|영어)$/i.test(String(data[0][0]).trim())){
+      data = data.slice(1);
+    }
+    if(!data.length) return;
+    days.push(sheetName);
+    data.forEach(r => {
+      allItems.push([
+        String(r[0]).trim(),
+        String(r[1]).trim(),
+        r[2] !== undefined ? String(r[2]).trim() : '',
+        sheetName
+      ]);
+    });
+  });
+  return { items: dedupePairs(allItems), days };
 }
 
-let activeBank = (loadCustomBank() || { words: DEFAULT_BANK }).words;
+const SELECTED_DAY_KEY = "vocab-jar-selected-day";
+const ALL_DAYS = "__all__";
+
+function getSelectedDay(){
+  const custom = loadCustomBank();
+  if(!custom || !custom.days || custom.days.length <= 1) return ALL_DAYS;
+  try{
+    const raw = JSON.parse(localStorage.getItem(SELECTED_DAY_KEY));
+    if(raw && raw.bankName === custom.name){
+      if(raw.day === ALL_DAYS || custom.days.includes(raw.day)) return raw.day;
+    }
+  }catch(e){}
+  return ALL_DAYS;
+}
+
+function setSelectedDay(day){
+  const custom = loadCustomBank();
+  if(!custom) return;
+  localStorage.setItem(SELECTED_DAY_KEY, JSON.stringify({ bankName: custom.name, day }));
+}
+
+function computeActiveBank(){
+  const custom = loadCustomBank();
+  if(!custom) return DEFAULT_BANK;
+  const day = getSelectedDay();
+  if(day === ALL_DAYS) return custom.words;
+  const filtered = custom.words.filter(w => w[3] === day);
+  return filtered.length >= 4 ? filtered : custom.words;
+}
+
+let activeBank = computeActiveBank();
 
 function updateWordsetInfo(){
   const custom = loadCustomBank();
   const info = document.getElementById('wordsetInfo');
   const resetBtn = document.getElementById('resetBankBtn');
+  const daySelectWrap = document.getElementById('daySelectWrap');
+  const daySelect = document.getElementById('daySelect');
+
   if(custom){
-    info.textContent = `${custom.name} · ${custom.words.length}개`;
+    const day = getSelectedDay();
+    const dayLabel = (day === ALL_DAYS) ? '전체' : day;
+    info.textContent = `${custom.name} · ${dayLabel} · ${activeBank.length}개`;
     resetBtn.style.display = 'inline-flex';
+
+    if(custom.days && custom.days.length > 1){
+      daySelectWrap.style.display = 'flex';
+      daySelect.innerHTML = `<option value="${ALL_DAYS}">전체 (${custom.words.length}개)</option>` +
+        custom.days.map(d => {
+          const cnt = custom.words.filter(w => w[3] === d).length;
+          return `<option value="${escapeHtml(d)}">${escapeHtml(d)} (${cnt}개)</option>`;
+        }).join('');
+      daySelect.value = day;
+    }else{
+      daySelectWrap.style.display = 'none';
+    }
   }else{
     info.textContent = `기본 단어은행 · ${DEFAULT_BANK.length}개`;
     resetBtn.style.display = 'none';
+    daySelectWrap.style.display = 'none';
   }
 }
 
@@ -766,7 +854,8 @@ const ROUND_KEY = "vocab-jar-rounds";
 
 function currentBankKey(){
   const custom = loadCustomBank();
-  return custom ? `custom:${custom.name}:${custom.words.length}` : `default:${DEFAULT_BANK.length}`;
+  if(!custom) return `default:${DEFAULT_BANK.length}`;
+  return `custom:${custom.name}:${custom.words.length}:day=${getSelectedDay()}`;
 }
 
 function loadRoundState(){
@@ -1096,6 +1185,7 @@ const resetBankBtn = document.getElementById('resetBankBtn');
 const completeLoadBtn = document.getElementById('completeLoadBtn');
 const completeCloseBtn = document.getElementById('completeCloseBtn');
 const reviewToggleBtn = document.getElementById('reviewToggleBtn');
+const daySelect = document.getElementById('daySelect');
 
 loadExcelBtn.addEventListener('click', () => excelInput.click());
 completeLoadBtn.addEventListener('click', () => excelInput.click());
@@ -1114,6 +1204,19 @@ reviewToggleBtn.addEventListener('click', () => {
   }
 });
 
+function switchToBank(customBank){
+  localStorage.setItem(CUSTOM_BANK_KEY, JSON.stringify(customBank));
+  setSelectedDay(ALL_DAYS);
+  activeBank = computeActiveBank();
+  roundState = loadRoundState();
+  updateWordsetInfo();
+  updateMasteryUI();
+  document.getElementById('completeBanner').style.display = 'none';
+  document.getElementById('reviewPanel').style.display = 'none';
+  locked = false;
+  nextQuestion();
+}
+
 excelInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if(!file) return;
@@ -1122,21 +1225,17 @@ excelInput.addEventListener('change', (e) => {
     try{
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
-      const items = parseWorkbookToPairs(workbook);
+      const { items, days } = parseWorkbookAllSheets(workbook);
       if(items.length < 4){
         alert('단어가 4개 이상 필요해요. 엑셀 A열=영단어, B열=뜻, C열=예문(선택)으로 넣어주세요.');
         return;
       }
-      const customBank = { name: file.name.replace(/\.[^/.]+$/, ''), words: items };
-      localStorage.setItem(CUSTOM_BANK_KEY, JSON.stringify(customBank));
-      activeBank = items;
-      roundState = loadRoundState();
-      updateWordsetInfo();
-      updateMasteryUI();
-      document.getElementById('completeBanner').style.display = 'none';
-      document.getElementById('reviewPanel').style.display = 'none';
-      locked = false;
-      nextQuestion();
+      const customBank = {
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        words: items,
+        days: days.length > 1 ? days : []
+      };
+      switchToBank(customBank);
     }catch(err){
       alert('파일을 읽는 중 문제가 생겼어요. xlsx, xls, csv 파일인지 확인해주세요.');
     }
@@ -1145,8 +1244,21 @@ excelInput.addEventListener('change', (e) => {
   e.target.value = '';
 });
 
+daySelect.addEventListener('change', () => {
+  setSelectedDay(daySelect.value);
+  activeBank = computeActiveBank();
+  roundState = loadRoundState();
+  updateWordsetInfo();
+  updateMasteryUI();
+  document.getElementById('completeBanner').style.display = 'none';
+  document.getElementById('reviewPanel').style.display = 'none';
+  locked = false;
+  nextQuestion();
+});
+
 resetBankBtn.addEventListener('click', () => {
   localStorage.removeItem(CUSTOM_BANK_KEY);
+  localStorage.removeItem(SELECTED_DAY_KEY);
   activeBank = DEFAULT_BANK;
   roundState = loadRoundState();
   updateWordsetInfo();
