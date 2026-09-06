@@ -1085,12 +1085,16 @@ el.skipBtn.addEventListener('click', ()=>{
   if(locked || !current) return;
   locked = true;
   const nodes = el.quizArea.querySelectorAll('.choice');
-  nodes.forEach(node=>node.classList.add('disabled'));
+  nodes.forEach((node,i)=>{
+    node.classList.add('disabled');
+    if(i === current.correctIndex) node.classList.add('correct');
+    else node.classList.add('dim');
+  });
   el.feedback.textContent = `모르는 단어로 표시했어요 · 정답은 "${current.choices[current.correctIndex]}"`;
   el.feedback.className = 'feedback bad';
   document.getElementById('guessBtn').style.display = 'none';
   registerResult(current.en, false);
-  setTimeout(()=>{ nextQuestion(); }, 900);
+  setTimeout(()=>{ nextQuestion(); }, 3000);
 });
 
 const loadExcelBtn = document.getElementById('loadExcelBtn');
