@@ -460,6 +460,12 @@
     <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
   </div>
 
+  <div class="day-select-wrap" id="bankSelectWrap" style="display:none;">
+    <span class="day-select-label">단어장</span>
+    <select class="day-select" id="bankSelect"></select>
+    <button class="wordset-btn ghost" id="deleteBankBtn" title="이 단어장 삭제">삭제</button>
+  </div>
+
   <div class="day-select-wrap" id="daySelectWrap" style="display:none;">
     <span class="day-select-label">Day</span>
     <select class="day-select" id="daySelect"></select>
@@ -681,14 +687,52 @@ const DEFAULT_BANK = WORDS.filter(([en]) => {
 }).map(([en,ko]) => [en, ko, '']);
 
 const STORAGE_KEY = "vocab-jar-progress";
-const CUSTOM_BANK_KEY = "vocab-jar-custom-bank";
+const BANKS_KEY = "vocab-jar-banks";
+const ACTIVE_BANK_KEY = "vocab-jar-active-bank-name";
 
-/* ---------------- 사용자 엑셀 단어장 ---------------- */
-function loadCustomBank(){
+/* ---------------- 사용자 엑셀 단어장 (여러 개 저장 가능) ---------------- */
+function loadBanksMap(){
   try{
-    const raw = JSON.parse(localStorage.getItem(CUSTOM_BANK_KEY));
-    if(raw && Array.isArray(raw.words) && raw.words.length >= 4) return raw;
+    const raw = JSON.parse(localStorage.getItem(BANKS_KEY));
+    if(raw && typeof raw === 'object') return raw;
   }catch(e){}
+  return {};
+}
+
+function saveBanksMap(map){
+  localStorage.setItem(BANKS_KEY, JSON.stringify(map));
+}
+
+function getActiveBankName(){
+  const name = localStorage.getItem(ACTIVE_BANK_KEY);
+  const map = loadBanksMap();
+  if(name && map[name]) return name;
+  return null;
+}
+
+function setActiveBankName(name){
+  if(name) localStorage.setItem(ACTIVE_BANK_KEY, name);
+  else localStorage.removeItem(ACTIVE_BANK_KEY);
+}
+
+function saveBank(customBank){
+  const map = loadBanksMap();
+  map[customBank.name] = customBank;
+  saveBanksMap(map);
+}
+
+function deleteBank(name){
+  const map = loadBanksMap();
+  delete map[name];
+  saveBanksMap(map);
+}
+
+function loadCustomBank(){
+  const name = getActiveBankName();
+  if(!name) return null;
+  const map = loadBanksMap();
+  const bank = map[name];
+  if(bank && Array.isArray(bank.words) && bank.words.length >= 4) return bank;
   return null;
 }
 
@@ -733,10 +777,9 @@ function getSelectedDay(){
   const custom = loadCustomBank();
   if(!custom || !custom.days || custom.days.length <= 1) return ALL_DAYS;
   try{
-    const raw = JSON.parse(localStorage.getItem(SELECTED_DAY_KEY));
-    if(raw && raw.bankName === custom.name){
-      if(raw.day === ALL_DAYS || custom.days.includes(raw.day)) return raw.day;
-    }
+    const map = JSON.parse(localStorage.getItem(SELECTED_DAY_KEY)) || {};
+    const day = map[custom.name];
+    if(day && (day === ALL_DAYS || custom.days.includes(day))) return day;
   }catch(e){}
   return ALL_DAYS;
 }
@@ -744,7 +787,10 @@ function getSelectedDay(){
 function setSelectedDay(day){
   const custom = loadCustomBank();
   if(!custom) return;
-  localStorage.setItem(SELECTED_DAY_KEY, JSON.stringify({ bankName: custom.name, day }));
+  let map = {};
+  try{ map = JSON.parse(localStorage.getItem(SELECTED_DAY_KEY)) || {}; }catch(e){}
+  map[custom.name] = day;
+  localStorage.setItem(SELECTED_DAY_KEY, JSON.stringify(map));
 }
 
 function computeActiveBank(){
@@ -757,6 +803,23 @@ function computeActiveBank(){
 }
 
 let activeBank = computeActiveBank();
+
+function updateBankSelect(){
+  const wrap = document.getElementById('bankSelectWrap');
+  const select = document.getElementById('bankSelect');
+  const map = loadBanksMap();
+  const names = Object.keys(map);
+  if(names.length === 0){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+  const activeName = getActiveBankName();
+  const options = ['<option value="__default__">기본 단어은행</option>']
+    .concat(names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)} (${map[n].words.length}개)</option>`));
+  select.innerHTML = options.join('');
+  select.value = activeName || '__default__';
+}
 
 function updateWordsetInfo(){
   const custom = loadCustomBank();
@@ -787,6 +850,7 @@ function updateWordsetInfo(){
     resetBtn.style.display = 'none';
     daySelectWrap.style.display = 'none';
   }
+  updateBankSelect();
 }
 
 /* ---------------- 회차(round)별 학습 진행 + 오답/스킵 기록 ---------------- */
@@ -798,20 +862,31 @@ function currentBankKey(){
   return `custom:${custom.name}:${custom.words.length}:day=${getSelectedDay()}`;
 }
 
-function loadRoundState(){
+function loadAllRoundStates(){
   try{
     const raw = JSON.parse(localStorage.getItem(ROUND_KEY));
-    if(raw && raw.bankKey === currentBankKey()){
-      return raw;
-    }
+    if(raw && typeof raw === 'object') return raw;
   }catch(e){}
-  return { bankKey: currentBankKey(), roundNumber: 1, seen: [], missed: [], history: [] };
+  return {};
+}
+
+function saveAllRoundStates(map){
+  localStorage.setItem(ROUND_KEY, JSON.stringify(map));
+}
+
+function loadRoundState(){
+  const map = loadAllRoundStates();
+  const key = currentBankKey();
+  if(map[key]) return map[key];
+  return { bankKey: key, roundNumber: 1, seen: [], missed: [], history: [] };
 }
 
 let roundState = loadRoundState();
 
 function saveRoundState(){
-  localStorage.setItem(ROUND_KEY, JSON.stringify(roundState));
+  const map = loadAllRoundStates();
+  map[roundState.bankKey] = roundState;
+  saveAllRoundStates(map);
 }
 
 function registerResult(en, correct){
@@ -1105,6 +1180,8 @@ const completeLoadBtn = document.getElementById('completeLoadBtn');
 const completeCloseBtn = document.getElementById('completeCloseBtn');
 const reviewToggleBtn = document.getElementById('reviewToggleBtn');
 const daySelect = document.getElementById('daySelect');
+const bankSelect = document.getElementById('bankSelect');
+const deleteBankBtn = document.getElementById('deleteBankBtn');
 
 loadExcelBtn.addEventListener('click', () => excelInput.click());
 completeLoadBtn.addEventListener('click', () => excelInput.click());
@@ -1123,17 +1200,23 @@ reviewToggleBtn.addEventListener('click', () => {
   }
 });
 
-function switchToBank(customBank){
-  localStorage.setItem(CUSTOM_BANK_KEY, JSON.stringify(customBank));
-  setSelectedDay(ALL_DAYS);
+function refreshAfterBankChange(){
   activeBank = computeActiveBank();
   roundState = loadRoundState();
   updateWordsetInfo();
   updateMasteryUI();
+  updateHeader();
   document.getElementById('completeBanner').style.display = 'none';
   document.getElementById('reviewPanel').style.display = 'none';
   locked = false;
   nextQuestion();
+}
+
+function switchToBank(customBank){
+  saveBank(customBank);
+  setActiveBankName(customBank.name);
+  setSelectedDay(ALL_DAYS);
+  refreshAfterBankChange();
 }
 
 excelInput.addEventListener('change', (e) => {
@@ -1165,27 +1248,27 @@ excelInput.addEventListener('change', (e) => {
 
 daySelect.addEventListener('change', () => {
   setSelectedDay(daySelect.value);
-  activeBank = computeActiveBank();
-  roundState = loadRoundState();
-  updateWordsetInfo();
-  updateMasteryUI();
-  document.getElementById('completeBanner').style.display = 'none';
-  document.getElementById('reviewPanel').style.display = 'none';
-  locked = false;
-  nextQuestion();
+  refreshAfterBankChange();
+});
+
+bankSelect.addEventListener('change', () => {
+  const val = bankSelect.value;
+  setActiveBankName(val === '__default__' ? null : val);
+  refreshAfterBankChange();
+});
+
+deleteBankBtn.addEventListener('click', () => {
+  const name = getActiveBankName();
+  if(!name) return;
+  if(!confirm(`"${name}" 단어장을 삭제할까요? 학습 기록도 함께 사라져요.`)) return;
+  deleteBank(name);
+  setActiveBankName(null);
+  refreshAfterBankChange();
 });
 
 resetBankBtn.addEventListener('click', () => {
-  localStorage.removeItem(CUSTOM_BANK_KEY);
-  localStorage.removeItem(SELECTED_DAY_KEY);
-  activeBank = DEFAULT_BANK;
-  roundState = loadRoundState();
-  updateWordsetInfo();
-  updateMasteryUI();
-  document.getElementById('completeBanner').style.display = 'none';
-  document.getElementById('reviewPanel').style.display = 'none';
-  locked = false;
-  nextQuestion();
+  setActiveBankName(null);
+  refreshAfterBankChange();
 });
 
 updateWordsetInfo();
